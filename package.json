@@ -4,51 +4,42 @@
   "description": "Build SQS-based Node applications without the boilerplate",
   "main": "index.js",
   "scripts": {
-    "test": "mocha",
-    "coverage": "istanbul cover _mocha -- -R dot && open coverage/lcov-report/index.html",
-    "lcov": "istanbul cover _mocha -- -R dot",
-    "lint": "jshint .",
-    "posttest": "npm run lint"
+    "test": "npm run lint && NODE_ENV=test mocha --compilers js:babel-core/register ",
+    "lint": "eslint --ignore-path .gitignore ."
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/BBC/sqs-consumer.git"
+    "url": "https://github.com/teamvio/sqs-consumer.git"
   },
   "bugs": {
-    "url": "https://github.com/BBC/sqs-consumer/issues"
+    "url": "https://github.com/teamvio/sqs-consumer/issues"
   },
-  "homepage": "https://github.com/BBC/sqs-consumer",
+  "homepage": "https://github.com/teamvio/sqs-consumer",
   "keywords": [
     "sqs",
+    "babel",
+    "es6",
+    "aws",
     "queue",
     "consumer"
   ],
   "author": "robin@robinmurphy.co.uk",
   "license": "MIT",
   "devDependencies": {
-    "istanbul": "^0.4.1",
-    "jshint": "^2.9.1",
-    "mocha": "^2.0.1",
-    "codeclimate-test-reporter": "0.3.3",
-    "sinon": "^1.10.3"
+    "babel-core": "^6.11.4",
+    "babel-eslint": "^6.1.2",
+    "babel-preset-es2015": "^6.9.0",
+    "babel-preset-stage-0": "^6.5.0",
+    "eslint": "^3.1.1",
+    "eslint-config-airbnb-base": "^4.0.2",
+    "eslint-plugin-import": "^1.11.1",
+    "mocha": "^2.5.3",
+    "sinon": "^1.17.4",
+    "sinon-as-promised": "^3.0.1"
   },
   "dependencies": {
-    "async": "^0.9.0",
-    "aws-sdk": "^2.0.23",
-    "debug": "^2.1.0"
-  },
-  "jshintConfig": {
-    "quotmark": "single",
-    "unused": true,
-    "undef": true,
-    "node": true,
-    "globals": {
-      "describe": false,
-      "it": false,
-      "before": false,
-      "beforeEach": false,
-      "after": false,
-      "afterEach": false
-    }
+    "aws-sdk": "^2.4.8",
+    "bluebird": "^3.4.1",
+    "debug": "^2.2.0"
   }
 }
