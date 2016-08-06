@@ -27,7 +27,6 @@ describe('Consumer', () => {
         consumer = new Consumer({
             queueUrl: 'some-queue-url',
             region: 'some-region',
-            authenticationErrorTimeout: 20,
             handleMessage,
             sqs
         });
@@ -115,48 +114,6 @@ describe('Consumer', () => {
             consumer.start();
         });
 
-        it('waits before repolling when a credentials error occurs', done => {
-            const credentialsErr = {
-                code: 'CredentialsError',
-                message: 'Missing credentials in config'
-            };
-
-            sqs.receiveMessageAsync.rejects(credentialsErr);
-
-            consumer.on('error', () => {
-                setTimeout(() => {
-                    sinon.assert.calledOnce(sqs.receiveMessageAsync);
-                }, 15);
-                setTimeout(() => {
-                    sinon.assert.calledTwice(sqs.receiveMessageAsync);
-                    done();
-                }, 21);
-            });
-
-            consumer.start();
-        });
-
-        it('waits before repolling when a 403 error occurs', done => {
-            const invalidSignatureErr = {
-                statusCode: 403,
-                message: 'The security token included in the request is invalid'
-            };
-
-            sqs.receiveMessageAsync.rejects(invalidSignatureErr);
-
-            consumer.on('error', () => {
-                setTimeout(() => {
-                    sinon.assert.calledOnce(sqs.receiveMessageAsync);
-                }, 1200);
-                setTimeout(() => {
-                    sinon.assert.calledTwice(sqs.receiveMessageAsync);
-                    done();
-                }, 2400);
-            });
-
-            consumer.start();
-        });
-
         it('fires a message_received event when a message is received', done => {
             consumer.on('message_received', message => {
                 assert.equal(message, response.Messages[0]);
@@ -188,24 +145,23 @@ describe('Consumer', () => {
         });
 
         it('deletes the message when the handleMessage callback is called', done => {
-            handleMessage.reolves();
-
             consumer.on('message_processed', () => {
                 sinon.assert.calledWith(sqs.deleteMessageAsync, {
                     QueueUrl: 'some-queue-url',
                     ReceiptHandle: 'receipt-handle'
                 });
+                consumer.stop();
                 done();
             });
-
             consumer.start();
         });
 
-        it('doesn\'t delete the message when a processing error is reported', () => {
+        it('doesn\'t delete the message when a processing error is reported', done => {
             handleMessage.rejects(new Error('Processing error'));
 
             consumer.on('processing_error', () => {
-                // ignore the error
+                consumer.stop();
+                done();
             });
 
             consumer.start();
@@ -214,71 +170,27 @@ describe('Consumer', () => {
         });
 
         it('consumes another message once one is processed', done => {
-            sqs.receiveMessageAsync.onSecondCall().resolves(response);
-            sqs.receiveMessageAsync.onThirdCall().resolves();
-
-            consumer.start();
-            setTimeout(() => {
+            consumer.on('message_processed', () => {
+                sqs.receiveMessageAsync.onSecondCall().resolves(response);
+                sqs.receiveMessageAsync.onThirdCall().resolves();
                 sinon.assert.calledTwice(handleMessage);
+                consumer.stop();
                 done();
-            }, 10);
+            });
+
+            consumer.start();
         });
 
-        it('doesn\'t consume more messages when called multiple times', () => {
-            sqs.receiveMessageAsync = sinon.stub().returns();
+        it('doesn\'t consume more messages when called multiple times', done => {
+            sqs.receiveMessageAsync = sinon.stub().resolves();
             consumer.start();
             consumer.start();
             consumer.start();
             consumer.start();
             consumer.start();
-
+            consumer.stop();
             sinon.assert.calledOnce(sqs.receiveMessageAsync);
-        });
-
-        it('consumes multiple messages when the batchSize is greater than 1', done => {
-            sqs.receiveMessageAsync.resolves({
-                Messages: [
-                    {
-                        ReceiptHandle: 'receipt-handle-1',
-                        MessageId: '1',
-                        Body: 'body-1'
-                    },
-                    {
-                        ReceiptHandle: 'receipt-handle-2',
-                        MessageId: '2',
-                        Body: 'body-2'
-                    },
-                    {
-                        ReceiptHandle: 'receipt-handle-3',
-                        MessageId: '3',
-                        Body: 'body-3'
-                    }
-                ]
-            });
-
-            consumer = new Consumer({
-                queueUrl: 'some-queue-url',
-                messageAttributeNames: ['attribute-1', 'attribute-2'],
-                region: 'some-region',
-                handleMessage,
-                batchSize: 3,
-                sqs
-            });
-
-            consumer.start();
-
-            setTimeout(() => {
-                sinon.assert.calledWith(sqs.receiveMessageAsync, {
-                    QueueUrl: 'some-queue-url',
-                    AttributeNames: [],
-                    MessageAttributeNames: ['attribute-1', 'attribute-2'],
-                    MaxNumberOfMessages: 3,
-                    WaitTimeSeconds: 20,
-                    VisibilityTimeout: undefined
-                });
-                sinon.assert.callCount(handleMessage, 3);
-                done();
-            }, 10);
+            done();
         });
 
         it('consumes messages with message attibute \'ApproximateReceiveCount\'', done => {
@@ -310,9 +222,10 @@ describe('Consumer', () => {
                     MessageAttributeNames: [],
                     MaxNumberOfMessages: 1,
                     WaitTimeSeconds: 20,
-                    VisibilityTimeout: undefined
+                    VisibilityTimeout: 500
                 });
                 assert.equal(message, messageWithAttr);
+                consumer.stop();
                 done();
             });
 

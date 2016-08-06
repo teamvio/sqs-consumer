@@ -2,7 +2,7 @@ import events from 'events';
 import AWS from 'aws-sdk';
 import Debug from 'debug';
 import Promise from 'bluebird';
-import { validate, isAuthenticationError } from './helpers';
+import validate from './validate';
 import { SQSError } from './errors';
 const debug = Debug('sqs-consumer');
 
@@ -31,7 +31,6 @@ export default class Consumer extends events.EventEmitter {
         this.batchSize = options.batchSize || 1;
         this.visibilityTimeout = options.visibilityTimeout || 500;
         this.waitTimeSeconds = options.waitTimeSeconds || 20;
-        this.authenticationErrorTimeout = options.authenticationErrorTimeout || 1000;
         this.sqs = options.sqs ||
             Promise.promisifyAll(new AWS.SQS({ region: options.region || 'eu-west-1' }));
     }
@@ -73,10 +72,6 @@ export default class Consumer extends events.EventEmitter {
                 })
                 .catch(err => {
                     this.emit('error', new SQSError(`SQS receive message failed: ${err.message}`));
-                    if (isAuthenticationError(err)) {
-                        debug('There was an authentication error. Pausing before retrying.');
-                        setTimeout(() => this.poll(), this.authenticationErrorTimeout);
-                    }
                 });
         } else {
             this.emit('stopped');
