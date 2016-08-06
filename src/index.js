@@ -2,9 +2,40 @@ import events from 'events';
 import AWS from 'aws-sdk';
 import Debug from 'debug';
 import Promise from 'bluebird';
-import validate from './validate';
-import { SQSError } from './errors';
 const debug = Debug('sqs-consumer');
+
+export class SQSError extends Error {
+    name = 'SQSError';
+    status = 500;
+    constructor(message = '') {
+        super(message);
+        this.message = message;
+    }
+}
+
+export class ProcessingError extends Error {
+    name = 'ProcessingError';
+    status = 500;
+    constructor(message = 'Processing error.') {
+        super(message);
+        this.message = message;
+    }
+}
+
+const requiredOptions = [
+    'queueUrl',
+    'handleMessage'
+];
+
+function validate(options) {
+    requiredOptions.forEach(option => {
+        if (!options[option]) throw new Error(`Missing SQS consumer option [${option}].`);
+    });
+
+    if (options.batchSize > 10 || options.batchSize < 1) {
+        throw new Error('SQS batchSize option must be between 1 and 10.');
+    }
+}
 
 /**
 * An SQS consumer.
